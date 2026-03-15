@@ -1,11 +1,12 @@
 # departures-board [![License Badge](https://img.shields.io/badge/BY--NC--SA%204.0%20License-grey?style=flat&logo=creativecommons&logoColor=white)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
-This is an ESP32 based Departures Board replicating those at many UK railway stations (using data provided by National Rail's public API), London Underground Arrivals boards (using data provided by TfL) and UK wide bus stops (using data provided by bustimes.org). This implementation uses a 3.12" OLED display panel with SSD1322 display controller onboard. STL files are also provided for 3D printing the custom desktop case. A small number of pre-assembled departure boards are also available exclusively from our [store](https://store.gadec.co.uk).
+This is an ESP32 based Departures Board replicating those at many UK railway stations (using data provided by National Rail's public API), London Underground Arrivals boards (using data provided by TfL) and UK wide bus stops (using data provided by bustimes.org). This implementation uses a 3.12" OLED display panel with SSD1322 display controller onboard, plus an optional TTP223 touch sensor. STL files are also provided for 3D printing the custom desktop case. A small number of pre-assembled departure boards are also available exclusively from our [store](https://store.gadec.co.uk).
 
 A model railway (00 gauge) version of this project is also available [here](https://github.com/gadec-uk/tiny-departures-board).
 
 ## Features
 * All processing is done onboard by the ESP32 processor, no middleware servers
+* **NEW** Support for touch sensor to switch modes / stations / wake from screensaver
 * Smooth animation matching the real departures and arrivals boards
 * Displays up to the next 9 departures with scheduled time, platform number, destination, calling stations and expected departure time
 * Optionally only show services calling at a selected railway station
@@ -16,6 +17,7 @@ A model railway (00 gauge) version of this project is also available [here](http
 * TfL station and network service messages (London Underground mode)
 * In Bus mode, displays up to the next 9 departures with service number, destination, vehicle registration and schedule/expected time
 * Optionally display RSS headline feeds with UK news, sports and rail news
+* **NEW** RSS Feed Editor to add custom headline feeds
 * Fully-featured browser based configuration screens - choose any station on the UK network / London Tube & DLR network / UK Bus Stops
 * Automatic firmware updates (optional)
 * Displays the weather at the selected location (optional)
@@ -30,9 +32,10 @@ A model railway (00 gauge) version of this project is also available [here](http
 1. An ESP32 D1 Mini board (or clone) - either USB-C or Micro-USB version with CH9102 recommended. For example, from [AliExpress](https://www.aliexpress.com/item/1005005972627549.html).
 2. A 3.12" 256x64 OLED Display Panel with SSD1322 display controller onboard. For example, from [AliExpress](https://www.aliexpress.com/item/1005008558326731.html).
 3. A 3D printed case using the [STL](https://github.com/gadec-uk/departures-board/tree/main/stl) files provided. If you don't have a 3D printer, you can use a 3D print service, local library or group.
-4. A National Rail Darwin Lite API token (these are free of charge - request one [here](https://realtime.nationalrail.co.uk/OpenLDBWSRegistration)).
-5. Optionally, an OpenWeather Map API token to display weather conditions at the selected station (these are also free, sign-up for a free developer account [here](https://home.openweathermap.org/users/sign_up)).
-6. Some intermediate soldering skills.
+4. Optionally, a TTP223 touch sensor (for easily switching modes / stations). For example, from [AliExpress](https://www.aliexpress.com/item/1005007850732859.html). If fitted, the touch sensor should be glued to the inside of one of the walls of the top part of the case with the *sensor* side against the case.
+5. A National Rail Darwin Lite API token (these are free of charge - request one [here](https://realtime.nationalrail.co.uk/OpenLDBWSRegistration)).
+6. Optionally, an OpenWeather Map API token to display weather conditions at the selected station (these are also free, sign-up for a free developer account [here](https://home.openweathermap.org/users/sign_up)).
+7. Some intermediate soldering skills.
 
 <img src="https://github.com/user-attachments/assets/5ae96896-62cc-4880-a3a8-79ac505e7605" align="center">
 
@@ -54,7 +57,13 @@ Solder the 4 SPI connections, plus power and ground. The wires **MUST** be solde
 | 14 D/C# | IO5 |
 | 16 CS# | IO26 |
 
-<img src="https://github.com/user-attachments/assets/a0ac50ab-f8d4-4528-ac38-7fb4c9ac0137" align="center">
+| TTP223 Pin | ESP32 Mini Pin |
+|:---------|:-------------:|
+| 1 GND | GND |
+| 2 I/O | IO34 |
+| 3 VCC | 3.3v |
+
+<img src="https://github.com/user-attachments/assets/0ebc152c-36d9-4f73-8223-1f52e9198543" align="center">
 
 ### Installing the firmware
 
@@ -114,6 +123,8 @@ At start-up, the ESP32's IP address is displayed. To change the station or to co
 - **Enable automatic firmware updates at startup** - automatically checks for AND installs the latest firmware from this repository when the system starts up.
 - **Enable daily check for firmware updates** - when enabled, the system will check for and install any updates just after midnight if the board is powered on.
 - **Enable overnight sleep mode (screensaver)** - if you're running the board 24/7, you can help prevent screen burn-in by enabling this option overnight.
+- ***Enable touch sensor** - A short tap switches between configured modes (rail/tube/bus). A long tap switches between primary and alternate railway stations (if configured). Obviously, do not enable this option if you have not installed a TTP223 touch sensor.
+- ***Wake from sleep by touch for** - if the board is in screensaver mode and the touch sensor is enabled, a tap will wake the board and it will remain awake for the selected number of minutes (the countdown timer resets on each tap).
 - ***Flip the display 180°** - Rotates the display (the case design provides two different viewing angles depending on orientation).
 - ***Set custom hostname for this board** - change the hostname from the default "DeparturesBoard", useful if you are running multiple boards.
 - ***Custom (non-UK) time zone (only for clock)** - if you're not based in the UK you can set the clock to display in your local time zone (see [below](#custom-time-zones) for details).
@@ -127,6 +138,7 @@ Items marked * are on the *Advanced Options* tab.
 A drop-down menu (top-right) adds the following options:
 - **Check for Updates** - manually checks for and installs any updates to the firmware.
 - **Edit API Keys** - view/edit your National Rail, OpenWeather Map and Transport for London API keys.
+- **Edit RSS Feeds** - loads the RSS Feeds Editor where you can add/edit/delete custom headline feeds.
 - **Clear WiFi Settings** - deletes the stored WiFi credentials and restarts in WiFiManager mode (useful to change WiFi network).
 - **Restart System** - restarts the ESP32.
 
@@ -142,7 +154,7 @@ A few other urls have been implemented, primarily for debugging/developer use:
 - **/control** - an endpoint for automation of sleep mode. Takes optional parameters *sleep* and *clock* - e.g. /control?sleep=1&clock=0 will force sleep mode and turn off the display completely. /control?sleep=0 will revert to normal operation. Always returns current state as json.
 
 ### Bus Stop ATCO codes
-Every UK bus stop has a unique ATCO code number. To find the ATCO code of the stop you want to monitor, go to [bustimes.org/search](https://bustimes.org/search) and type a location in the search box. Select the location from the list of places shown and then select the particular stop you want from the list. The ATCO code is shown on the stop information page. After entering the code in the Departures Board setup screen, tap the **Verify** button and the location will be shown confirming your selection. You must use the **Verify** button *before* you can save changes. Up to ten of the most recently verified ATCO codes are saved and can be selected from a dropdown list for quick access.
+Every UK bus stop has a unique ATCO code number. To find the ATCO code of the stop you want to monitor, go to [bustimes.org/search](https://bustimes.org/search) and type a location in the search box. Select the location from the list of places shown and then select the particular stop you want from the list. The ATCO code is shown on the stop information page. After entering the code in the Departures Board setup screen, tap the **Verify** button and the location will be shown confirming your selection. You must use the **Verify** button *before* you can save changes. Up to ten of the most recently verified ATCO codes are saved and can be selected from a dropdown list for quick access. The bustimes map and search facility are also embedded in the Bus mode configuration screen from firmware B2.3 onwards.
 
 <img src="https://github.com/user-attachments/assets/8a41ec6d-5f15-4102-b3d5-c09260986319" align="center">
 
