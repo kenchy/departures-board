@@ -8,20 +8,20 @@
  *
  * ESP32 "Mini" Board with 3.12" 256x64 OLED Display Panel with SSD1322 controller on-board.
  *
- * OLED PANEL     ESP32 MINI
+ * OLED PANEL     ESP32 c3 super mini
  * 1 VSS          GND
  * 2 VCC_IN       3.3V
- * 4 D0/CLK       IO18
- * 5 D1/DIN       IO23
- * 14 D/C#        IO5
- * 16 CS#         IO26
+ * 4 D0/CLK       IO4
+ * 5 D1/DIN       IO6
+ * 14 D/C#        IO8
+ * 16 CS#         IO9
  *
  * Optional TTP223 touch sensor connection:
  *
  * TTP223         ESP32 MINI
  * GND            GND
  * VCC            3.3V
- * I/O            IO34
+ * I/O            IO1
  *
  */
 
@@ -138,7 +138,9 @@ static const char successPage[] PROGMEM =
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 #define DIMMED_BRIGHTNESS 1 // OLED display brightness level when in sleep/screensaver mode
 
-U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2(U8G2_R0, /* cs=*/ 26, /* dc=*/ 5, /* reset=*/ U8X8_PIN_NONE);
+//U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2(U8G2_R0, /* cs=*/ 26, /* dc=*/ 5, /* reset=*/ U8X8_PIN_NONE);
+//Change the gpio pons so they'll work with a c3 supermini
+U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2(U8G2_R0, /* cs=*/ 8, /* dc=*/ 9, /* reset=*/ U8X8_PIN_NONE);
 
 // Vertical line positions on the OLED display (National Rail)
 #define LINE0 0
@@ -471,7 +473,7 @@ rdStation station;
 stnMessages messages;
 
 // Optional TTP223 touch sensor / push button
-touchSensor button(34);
+touchSensor button(1);
 
 /*
  * Graphics helper functions for OLED panel
