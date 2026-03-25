@@ -80,7 +80,7 @@ static struct tm timeinfo;
 static const char ukTimezone[] = "GMT0BST,M3.5.0/1,M10.5.0";
 
 // Default hostname
-static const char defaultHostname[] = "DeparturesBoard";
+static const char defaultHostname[] = "LottiesBoard";
 
 // Local firmware updates via /update Web GUI
 static const char updatePage[] PROGMEM =
