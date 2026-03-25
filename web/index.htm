@@ -615,8 +615,8 @@
 
     function populateOffsetTime(selectId) {
       const select = document.getElementById(selectId);
-      for (let mins = -60; mins <= 120; mins += 15) {
-        if (mins === 120) mins = 119;
+      for (let mins = -60; mins <= 60; mins += 5) {
+        if (mins === 60) mins = 59;
         const option = document.createElement("option");
         option.value = mins;
         if (mins === 0) option.textContent = "none (default)";
