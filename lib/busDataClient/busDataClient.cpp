@@ -118,19 +118,24 @@ void busDataClient::cleanFilter(const char* rawFilter, char* cleanedFilter, size
     return;
 }
 
-int busDataClient::fetchDepartures(rdStation *station, const char *locationId, const char *filter) {
+bool busDataClient::isDuplicateService(int serviceIndex) {
+    for (int i=0;i<xBusStop->numServices;++i) {
+        if (strcmp(xBusStop->service[serviceIndex].destinationName, xBusStop->service[i].destinationName) == 0
+          && strcmp(xBusStop->service[serviceIndex].lineName, xBusStop->service[i].lineName) == 0
+          && strcmp(xBusStop->service[serviceIndex].scheduled, xBusStop->service[i].scheduled) == 0
+          && strcmp(xBusStop->service[serviceIndex].expected, xBusStop->service[i].expected) == 0) return true;
+    }
+    return false;
+}
 
-    unsigned long perfTimer=millis();
-    long dataReceived = 0;
-    bool bChunked = false;
+int busDataClient::fetchDeparturesPage(const char *locationId, const char *filter) {
+
     js->lastResultMessage[0] = '\0';
-
 
     WiFiClientSecure httpsClient;
     httpsClient.setInsecure();
     httpsClient.setTimeout(5000);
     httpsClient.setConnectionTimeout(5000);
-    boardChanged=false;
 
     int retryCounter=0;
     while (!httpsClient.connect(apiHost,443) && (retryCounter++ < 10)){
@@ -140,7 +145,8 @@ int busDataClient::fetchDepartures(rdStation *station, const char *locationId, c
         strcpy(js->lastResultMessage,"Error: Connect timed out");
         return UPD_NO_RESPONSE;
     }
-    String request = "GET /stops/" + String(locationId) + "/departures HTTP/1.0\r\nHost: " + String(apiHost) + "\r\nConnection: close\r\n\r\n";
+
+    String request = "GET /stops/" + String(locationId) + "/departures" + String(pageOffset) + " HTTP/1.0\r\nHost: " + String(apiHost) + "\r\nConnection: close\r\n\r\n";
     httpsClient.print(request);
     retryCounter=0;
     while(!httpsClient.available() && retryCounter++ < 40) {
@@ -177,19 +183,13 @@ int busDataClient::fetchDepartures(rdStation *station, const char *locationId, c
 
     // Start scraping the data
     unsigned long dataSendTimeout = millis() + 10000UL;
-    id=0;
-    bool maxServicesRead = false;
-    xBusStop->numServices = 0;
-    for (int i=0;i<MAXBOARDSERVICES;i++) {
-        strcpy(xBusStop->service[i].destinationName,"Check front of bus");
-        strcpy(xBusStop->service[i].scheduled,"");
-        strcpy(xBusStop->service[i].expected,"");
-    }
     int parseStep = PBT_START; // looking for the start of data
     int dataColumns = 0;
     bool serviceData;
     String serviceId;
     String destination;
+    maxServicesRead = false;
+    strcpy(pageOffset, "");
 
     while((httpsClient.available() || httpsClient.connected()) && (millis() < dataSendTimeout) && (!maxServicesRead)) {
         while(httpsClient.available() && !maxServicesRead) {
@@ -197,7 +197,18 @@ int busDataClient::fetchDepartures(rdStation *station, const char *locationId, c
             dataReceived+=line.length()+1;
             line.trim();
             if (line.length()) {
-                if (line.indexOf("</body>")>=0) {
+                if (line.indexOf("<p class=\"next\"")>=0) {
+                    int hrefPos = line.indexOf("href=\"");
+                    if (hrefPos > 0) {
+                        int endPos = line.indexOf("\"",hrefPos+6);
+                        if (endPos > 0 && (endPos-hrefPos-6) < sizeof(pageOffset)) {
+                            strcpy(pageOffset, line.substring(hrefPos+6, endPos).c_str());
+                            replaceWord(pageOffset,"&amp;","&");
+                            replaceWord(pageOffset,"%3A",":");
+                        }
+                    }
+                    maxServicesRead = true;
+                } else if (line.indexOf("</body>")>=0) {
                     // end of page
                     maxServicesRead = true;
                 } else {
@@ -257,7 +268,7 @@ int busDataClient::fetchDepartures(rdStation *station, const char *locationId, c
                                 if (dataColumns == 4) parseStep = PBT_EXPECTED; else {
                                     strcpy(xBusStop->service[id].expected,"");
                                     parseStep = PBT_HEADER;
-                                    if (serviceMatchesFilter(filter,xBusStop->service[id].lineName)) id++;
+                                    if (serviceMatchesFilter(filter,xBusStop->service[id].lineName) && !isDuplicateService(id)) id++;
                                     if (id>=MAXBOARDSERVICES) maxServicesRead=true;
                                 }
                             } else if (line.substring(0,1)!="<") {
@@ -268,7 +279,7 @@ int busDataClient::fetchDepartures(rdStation *station, const char *locationId, c
                         case PBT_EXPECTED:
                             if (line.indexOf("</td>")>=0) {
                                 parseStep = PBT_HEADER;
-                                if (serviceMatchesFilter(filter,xBusStop->service[id].lineName)) id++;
+                                if (serviceMatchesFilter(filter,xBusStop->service[id].lineName) && !isDuplicateService(id)) id++;
                                 if (id>=MAXBOARDSERVICES) maxServicesRead=true;
                             }
                             else if (line.substring(0,1)!="<") {
@@ -289,6 +300,36 @@ int busDataClient::fetchDepartures(rdStation *station, const char *locationId, c
     }
 
     xBusStop->numServices = id;
+    return UPD_SUCCESS;
+
+}
+
+int busDataClient::fetchDepartures(rdStation *station, const char *locationId, const char *filter) {
+
+    unsigned long perfTimer=millis();
+    strcpy(pageOffset, "");
+    dataReceived = 0;
+    bChunked = false;
+    id=0;
+    int pagesLoaded = 0;
+    boardChanged=false;
+
+    xBusStop->numServices = 0;
+    for (int i=0;i<MAXBOARDSERVICES;i++) {
+        strcpy(xBusStop->service[i].destinationName,"Check front of bus");
+        strcpy(xBusStop->service[i].scheduled,"");
+        strcpy(xBusStop->service[i].expected,"");
+    }
+
+    js->lastResultMessage[0] = '\0';
+
+    do {
+        int fetchPageResult = fetchDeparturesPage(locationId,filter);
+        if (fetchPageResult != UPD_SUCCESS) {
+            return fetchPageResult; // return immediately if failure 
+        }
+        pagesLoaded++;
+    } while (xBusStop->numServices < MAXBOARDSERVICES && strlen(pageOffset) && pagesLoaded < MAX_SCANNED_PAGES);
 
     // Remove &amp; from destination name
     for (int i=0;i<xBusStop->numServices;i++) replaceWord(xBusStop->service[i].destinationName,"&amp;","&");
@@ -299,10 +340,10 @@ int busDataClient::fetchDepartures(rdStation *station, const char *locationId, c
 
     UBaseType_t uxHighWaterMark = uxTaskGetStackHighWaterMark(NULL);
     if (boardChanged) {
-        sprintf(js->lastResultMessage+strlen(js->lastResultMessage),"OK: UP D:%d T:%d S:%d %s",dataReceived,millis()-perfTimer,uxHighWaterMark,bChunked?"C!":"");
+        sprintf(js->lastResultMessage+strlen(js->lastResultMessage),"OK: UP D:%d P:%d T:%d S:%d %s",dataReceived,pagesLoaded,millis()-perfTimer,uxHighWaterMark,bChunked?"C!":"");
         return UPD_SUCCESS;
     } else {
-        sprintf(js->lastResultMessage+strlen(js->lastResultMessage),"OK: NC D:%d T:%d S:%d %s",dataReceived,millis()-perfTimer,uxHighWaterMark,bChunked?"C!":"");
+        sprintf(js->lastResultMessage+strlen(js->lastResultMessage),"OK: NC D:%d P:%d T:%d S:%d %s",dataReceived,pagesLoaded,millis()-perfTimer,uxHighWaterMark,bChunked?"C!":"");
         return UPD_NO_CHANGE;
     }
 }

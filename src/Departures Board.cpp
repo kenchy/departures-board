@@ -345,6 +345,11 @@ static bool forcedSleep = false;           // Is the system in manual sleep mode
 static bool forcedAwake = false;           // Was the system woken by touch sensor?
 static int stayAwakeSeconds = 300;         // How long to force stay awake since last tap
 static bool sleepClock = true;             // Showing the clock in sleep mode?
+static bool useNSEclockForSleep = false;   // Use the large NSE clock in "sleep" mode?
+static bool longPressClock = false;        // Long press switches to NSE clock mode
+static bool showClockNoServices = false;   // Show the NSE clock when no train services at location
+static bool noServiceClockIsActive = false;// NSE clock is active due to no services at location
+static bool NSEclockIsActive = false;      // Is the large NSE clock active
 static bool softResetNeeded = false;       // Is a soft reset pending?
 static bool manualUpdateCheck = false;     // Has the GUI requested a firmware update check
 static bool showDataIcon = false;          // Show the data transfer indicator?
@@ -461,6 +466,9 @@ static int prevMessage = 0;
 static int prevScrollStopsLength = 0;
 static long delayMs;
 static char line2[5+MAXBOARDMESSAGES][MAXCALLINGSIZE+12];
+static int msgLine;
+static int msgWidth;
+static int msgMargin;
 
 // Line 3 (additional services)
 static int line3Service = 0;
@@ -538,9 +546,9 @@ void drawTruncatedText(const char *message, int line, int x) {
   u8g2.drawStr(x,line,buff);
 }
 
-void centreText(const char *message, int line) {
+void centreText(const char *message, int line, int margin=0, int maxWidth = SCREEN_WIDTH) {
   int width = u8g2.getStrWidth(message);
-  if (width<=SCREEN_WIDTH) u8g2.drawStr((SCREEN_WIDTH-width)/2,line,message);
+  if (width<=maxWidth) u8g2.drawStr(((maxWidth-width)/2)+margin,line,message);
   else drawTruncatedText(message,line,0);
 }
 
@@ -652,25 +660,121 @@ void drawStationHeader(const char *stopName, const char *callingStopName, const 
   if (titleOffset) u8g2.drawStr(0,LINE0-1,schedulerActive?"\x87":"\x88");
 }
 
+// Draw a 7-segment digit at x,y with height h
+void draw7Segment8(int x, int y, int h, char digit) {
+    int w = (h * 7) / 10;    // Width is 70% of height
+    int t = (h * 15) / 100;  // Thickness of the segments
+
+    // Calculate uniform gap sizing between segments
+    int g = (h >= 40) ? (h / 40) : 1;
+    int half_h = h / 2;
+    int gh1 = g / 2;
+    int gh2 = g - gh1;
+
+    // Helper lambda to draw a filled quadrilateral using two triangles.
+    auto drawQuad = [&](int x0, int y0, int x1, int y1, int x2, int y2, int x3, int y3) {
+        u8g2.drawTriangle(x0, y0, x1, y1, x2, y2);
+        u8g2.drawTriangle(x0, y0, x2, y2, x3, y3);
+    };
+
+    // Top Segment
+    if (strchr("02356789",digit) != nullptr)
+        drawQuad(x + g, y,
+             x + w - g, y,
+             x + w - t - g, y + t,
+             x + t + g, y + t);
+
+    // Top-Right Segment
+    if (strchr("01234789",digit) != nullptr)
+      drawQuad(x + w, y + g,
+             x + w, y + half_h - gh1,
+             x + w - t, y + half_h - gh1,
+             x + w - t, y + t + g);
+
+    // Bottom-Right Segment
+    if (strchr("013456789",digit) != nullptr)
+      drawQuad(x + w, y + half_h + gh2,
+             x + w, y + h - g,
+             x + w - t, y + h - t - g,
+             x + w - t, y + half_h + gh2);
+
+    // Bottom Segment
+    if (strchr("0235689",digit) != nullptr)
+      drawQuad(x + g, y + h,
+             x + w - g, y + h,
+             x + w - t - g, y + h - t,
+             x + t + g, y + h - t);
+
+    // Bottom-Left Segment
+    if (strchr("0268",digit) != nullptr)
+      drawQuad(x, y + half_h + gh2,
+             x + t, y + half_h + gh2,
+             x + t, y + h - t - g,
+             x, y + h - g);
+
+    // Top-Left Segment
+    if (strchr("045689",digit) != nullptr)
+      drawQuad(x, y + g,
+             x + t, y + t + g,
+             x + t, y + half_h - gh1,
+             x, y + half_h - gh1);
+
+    // Middle Segment
+    if (strchr("2345689",digit) != nullptr)
+      drawQuad(x + t + g, y + half_h - t / 2,
+             x + w - t - g, y + half_h - t / 2,
+             x + w - t - g, y + half_h + t / 2,
+             x + t + g, y + half_h + t / 2);
+}
+
+// Draws the full screen, Network SouthEast style clock
+void drawNSEclock(bool fullDraw = true) {
+  char clockdigits[7];
+  int top;
+  sprintf(clockdigits,"%02d%02d%02d",timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec);
+
+  if (fullDraw) {
+    u8g2.clearBuffer();
+    top = 11;
+  } else {
+    top = 6;
+    blankArea(8,top,248,41);
+  }
+  draw7Segment8(8,top,41,clockdigits[0]);
+  draw7Segment8(50,top,41,clockdigits[1]);
+  draw7Segment8(109,top,41,clockdigits[2]);
+  draw7Segment8(151,top,41,clockdigits[3]);
+  draw7Segment8(202,top+11,30,clockdigits[4]);
+  draw7Segment8(229,top+11,30,clockdigits[5]);
+  u8g2.drawFilledEllipse(190,top+21,4,4);
+  u8g2.drawFilledEllipse(93,top+10,4,4);
+  u8g2.drawFilledEllipse(93,top+30,4,4);
+
+  if (fullDraw) u8g2.sendBuffer(); else u8g2.updateDisplayArea(1,0,31,6);
+}
+
 // Draw the NR clock (if the time has changed)
 void drawCurrentTime() {
   char timeSeg[7];
 
   if (strcmp(displayedTime,currentTime)) {
-    u8g2.setFont(NatRailClockLarge9);
-    blankArea(96,LINE4,64,SCREEN_HEIGHT-LINE4);
-    strlcpy(timeSeg,currentTime,7);
-    u8g2.drawStr(96,LINE4-1,timeSeg);
-    u8g2.setFont(NatRailClockSmall7);
-    strcpy(timeSeg,currentTime+6);
-    u8g2.drawStr(144,LINE4+1,timeSeg);
-    u8g2.setFont(NatRailSmall9);
-    u8g2.updateDisplayArea(12,6,8,2);
-    strcpy(displayedTime,currentTime);
-    if (dateEnabled && timeinfo.tm_mday!=dateDay) {
-      // Need to update the date on screen
-      drawStationHeader(station.location,callingStation,locationFilter,nrTimeOffset);
-      u8g2.sendBuffer();  // Just refresh on new date
+    if (noServiceClockIsActive) drawNSEclock(false);
+    else {
+      u8g2.setFont(NatRailClockLarge9);
+      blankArea(96,LINE4,64,SCREEN_HEIGHT-LINE4);
+      strlcpy(timeSeg,currentTime,7);
+      u8g2.drawStr(96,LINE4-1,timeSeg);
+      u8g2.setFont(NatRailClockSmall7);
+      strcpy(timeSeg,currentTime+6);
+      u8g2.drawStr(144,LINE4+1,timeSeg);
+      u8g2.setFont(NatRailSmall9);
+      u8g2.updateDisplayArea(12,6,8,2);
+      strcpy(displayedTime,currentTime);
+      if (dateEnabled && timeinfo.tm_mday!=dateDay) {
+        // Need to update the date on screen
+        drawStationHeader(station.location,callingStation,locationFilter,nrTimeOffset);
+        u8g2.sendBuffer();  // Just refresh on new date
+      }
     }
   }
 }
@@ -700,16 +804,21 @@ void drawSleepingScreen() {
 void showUpdateIcon(bool show) {
   if (!showDataIcon) return;
   if (show) {
-    u8g2.setFont(NatRailTall12);
-    u8g2.drawStr(0,50,"}");
-    if (boardMode == MODE_TUBE) u8g2.setFont(Underground10);
-    else u8g2.setFont(NatRailSmall9);
+    if (noServiceClockIsActive) {
+      u8g2.setFont(NatRailSmall9);
+      u8g2.drawStr(0,-2,"\x81");
+    } else {
+      u8g2.setFont(NatRailTall12);
+      u8g2.drawStr(0,50,"}");
+      if (boardMode == MODE_TUBE) u8g2.setFont(Underground10);
+      else u8g2.setFont(NatRailSmall9);
+    }
     updateIconVisible = true;
   } else {
-    blankArea(0,50,6,13);
+    if (noServiceClockIsActive) blankArea(0,0,6,6); else blankArea(0,50,6,13);
     updateIconVisible = false;
   }
-  u8g2.updateDisplayArea(0,6,1,2);
+  if (noServiceClockIsActive) u8g2.updateDisplayArea(0,0,1,1); else u8g2.updateDisplayArea(0,6,1,2);
 }
 
 /*
@@ -727,6 +836,7 @@ void showSetupScreen() {
 }
 
 void showNoDataScreen() {
+  noServiceClockIsActive = false;
   u8g2.clearBuffer();
   char msg[60];
   u8g2.setFont(NatRailTall12);
@@ -788,6 +898,7 @@ void showWsdlFailureScreen() {
 
 void showTokenErrorScreen() {
   char msg[60];
+  noServiceClockIsActive = false;
   u8g2.clearBuffer();
   u8g2.setFont(NatRailTall12);
   switch (boardMode) {
@@ -815,6 +926,7 @@ void showTokenErrorScreen() {
 }
 
 void showCRSErrorScreen() {
+  noServiceClockIsActive = false;
   u8g2.clearBuffer();
   char msg[60];
   u8g2.setFont(NatRailTall12);
@@ -970,7 +1082,7 @@ void checkPostWebUpgrade() {
 
 // Returns true if sleep mode is enabled and we're within the sleep period
 bool isSnoozing() {
-  if (forcedSleep) return true;
+  if (forcedSleep || NSEclockIsActive) return true;
   if (forcedAwake) {
     if (button.secsSinceLastTap() >= stayAwakeSeconds) forcedAwake = false;
     else return false;
@@ -1169,6 +1281,7 @@ void loadConfig(bool coldBoot = false, boardModes requestedMode = MODE_LOADCONFI
         if (settings["showBus"].is<bool>())           enableBus = settings["showBus"];
         if (settings["showFullCalling"].is<bool>())   showFullCalling = settings["showFullCalling"];
         if (settings["showFullMsgs"].is<bool>())      showFullMsgs = settings["showFullMsgs"];
+        if (settings["showClockNoServices"].is<bool>()) showClockNoServices = settings["showClockNoServices"];
         if (settings["sleep"].is<bool>())             sleepEnabled = settings["sleep"];
         if (settings["darkSleep"].is<bool>())         sleepClock = !settings["darkSleep"];
         if (settings["fastRefresh"].is<bool>())       apiRefreshRate = settings["fastRefresh"] ? FASTDATAUPDATEINTERVAL : DATAUPDATEINTERVAL;
@@ -1178,6 +1291,8 @@ void loadConfig(bool coldBoot = false, boardModes requestedMode = MODE_LOADCONFI
         if (settings["sleepStarts"].is<int>())        sleepStarts = settings["sleepStarts"];
         if (settings["sleepEnds"].is<int>())          sleepEnds = settings["sleepEnds"];
         if (settings["brightness"].is<int>())         brightness = settings["brightness"];
+        if (settings["longPressClock"].is<bool>())    longPressClock = settings["longPressClock"];
+        if (settings["sleepUseBigClock"].is<bool>())  useNSEclockForSleep = (settings["sleepUseBigClock"] && sleepClock);
 
         if (settings["noScroll"].is<bool>())          noScrolling = settings["noScroll"];
         if (settings["flip"].is<bool>())              flipScreen = settings["flip"];
@@ -1379,38 +1494,39 @@ void softResetBoard(boardModes requestedMode) {
   isScrollingService = false;
   isScrollingStops = false;
   isScrollingPrimary = false;
-  isSleeping=false;
-  forcedSleep=false;
-  firstLoad=true;
-  noDataLoaded=true;
-  viaTimer=0;
-  timer=0;
-  serviceTimer=0;
-  prevProgressBarPosition=133;
-  startupProgressPercent=70;
-  currentMessage=0;
-  prevMessage=0;
-  prevScrollStopsLength=0;
-  isShowingVia=false;
-  line3Service=0;
-  prevService=0;
-  fetchComplete=false;
-  nextSchedulerCheck=millis()+10000;
-  if (!weatherEnabled) weatherMsg[0]='\0';
+  noServiceClockIsActive = false;
+  isSleeping = false;
+  forcedSleep = false;
+  firstLoad = true;
+  noDataLoaded = true;
+  viaTimer = 0;
+  timer = 0;
+  serviceTimer = 0;
+  prevProgressBarPosition = 133;
+  startupProgressPercent = 70;
+  currentMessage = 0;
+  prevMessage = 0;
+  prevScrollStopsLength = 0;
+  isShowingVia = false;
+  line3Service = 0;
+  prevService = 0;
+  fetchComplete = false;
+  nextSchedulerCheck = millis()+10000;
+  if (!weatherEnabled) weatherMsg[0] = '\0';
   else if (!prevWeatherEnabled) {
     // force a weather update, even if the location hasn't changed
-    prevLat=0;
-    prevLon=0;
+    prevLat = 0;
+    prevLon = 0;
   }
 
   if (rssEnabled && prevRssUrl != rssURL) {
     rssMessage[0] = '\0';
     if (boardMode == MODE_RAIL || boardMode == MODE_TUBE) {
-      prevProgressBarPosition=95;
+      prevProgressBarPosition = 95;
       progressBar("Updating RSS headlines feed",50);
       updateRssFeed();
     }
-  } else if (rssEnabled && previousMode!=boardMode && boardMode!=MODE_BUS) {
+  } else if (rssEnabled && previousMode != boardMode && boardMode != MODE_BUS) {
     buildRssMessage();
   }
 
@@ -1549,7 +1665,7 @@ bool checkForFirmwareUpdate() {
 // Draw the primary service line
 void drawPrimaryService(bool showVia) {
   int destPos;
-  char clipDestination[MAXLOCATIONSIZE];
+  char clipDestination[MAXLOCATIONSIZE+5];
   char etd[16];
   char plat[9];
 
@@ -1570,7 +1686,10 @@ void drawPrimaryService(bool showVia) {
   }
 
   if (showVia) strcpy(clipDestination,station.service[0].via);
-  else strcpy(clipDestination,station.service[0].destination);
+  else {
+    strcpy(clipDestination,station.service[0].destination);
+    if (station.service[0].serviceType == BUS) strcat(clipDestination," ~");  // Add bus icon to destination
+  }
   if (getStringWidth(clipDestination) > spaceAvailable) {
     while (getStringWidth(clipDestination) > (spaceAvailable - 8)) {
       clipDestination[strlen(clipDestination)-1] = '\0';
@@ -1586,7 +1705,7 @@ void drawPrimaryService(bool showVia) {
 
 // Draw the secondary service line
 void drawServiceLine(int line, int y) {
-  char clipDestination[MAXLOCATIONSIZE];
+  char clipDestination[MAXLOCATIONSIZE+5];
   char ordinal[5];
   char plat[9];
   int destPos;
@@ -1628,6 +1747,7 @@ void drawServiceLine(int line, int y) {
     }
     // work out if we need to clip the destination
     strcpy(clipDestination,station.service[line].destination);
+    if (station.service[line].serviceType == BUS) strcat(clipDestination," \x86"); // Add bus icon
     if (getStringWidth(clipDestination) > spaceAvailable) {
       while (getStringWidth(clipDestination) > spaceAvailable - 5) {
         clipDestination[strlen(clipDestination)-1] = '\0';
@@ -1650,6 +1770,7 @@ void drawServiceLine(int line, int y) {
 
 // Draw the initial Departures Board
 void drawStationBoard() {
+  if (showClockNoServices && station.numServices == 0) noServiceClockIsActive = true; else noServiceClockIsActive = false;
   numMessages=0;
   if (firstLoad) {
     // Clear the entire screen for the first load since boot up/wake from sleep
@@ -1661,94 +1782,113 @@ void drawStationBoard() {
     // Clear the top two lines
     blankArea(0,LINE0,256,LINE2-1);
   }
-  drawStationHeader(station.location,callingStation,locationFilter,nrTimeOffset);
 
-  // Draw the primary service line
-  isShowingVia=false;
-  viaTimer=millis()+300000;  // effectively don't check for via
-  if (station.numServices) {
-    drawPrimaryService(false);
-    if (station.service[0].via[0]) viaTimer=millis()+4000;
-    if (station.service[0].isCancelled) {
-      // This train is cancelled
-      if (station.serviceMessage[0]) {
-        strcpy(line2[0],station.serviceMessage);
-        numMessages=1;
+  msgLine = LINE2;
+  msgMargin = 0;
+  msgWidth = SCREEN_WIDTH;
+
+  if (!noServiceClockIsActive) {
+    drawStationHeader(station.location,callingStation,locationFilter,nrTimeOffset);
+
+    // Draw the primary service line
+    isShowingVia=false;
+    viaTimer=millis()+300000;  // effectively don't check for via
+    if (station.numServices) {
+      drawPrimaryService(false);
+      if (station.service[0].via[0]) viaTimer=millis()+4000;
+      if (station.service[0].isCancelled) {
+        // This train is cancelled
+        if (station.serviceMessage[0]) {
+          strcpy(line2[0],station.serviceMessage);
+          numMessages=1;
+        }
+      } else {
+        // The train is not cancelled
+        if (station.service[0].isDelayed && station.serviceMessage[0]) {
+          // The train is delayed and there's a reason
+          strcpy(line2[0],station.serviceMessage);
+          numMessages++;
+        }
+        if (station.calling[0]) {
+          // Add the calling stops message
+          sprintf(line2[numMessages],"Calling at: %s",station.calling);
+          numMessages++;
+        }
+        if (strcmp(station.origin, station.location)==0) {
+          // Service originates at this station
+          if (station.service[0].opco[0]) {
+            sprintf(line2[numMessages],"This %s service starts here.",station.service[0].opco);
+          } else {
+            strcpy(line2[numMessages],"This service starts here.");
+          }
+          // Add the seating if available
+          switch (station.service[0].classesAvailable) {
+            case 1:
+              strcat(line2[numMessages],firstClassSeating);
+              break;
+            case 2:
+              strcat(line2[numMessages],standardClassSeating);
+              break;
+            case 3:
+              strcat(line2[numMessages],dualClassSeating);
+              break;
+          }
+          numMessages++;
+        } else {
+          // Service originates elsewhere
+          strcpy(line2[numMessages],"");
+          if (station.service[0].opco[0]) {
+            if (station.origin[0]) {
+              sprintf(line2[numMessages],"This is the %s service from %s.",station.service[0].opco,station.origin);
+            } else {
+              sprintf(line2[numMessages],"This is the %s service.",station.service[0].opco);
+            }
+          } else {
+            if (station.origin[0]) {
+              sprintf(line2[numMessages],"This service originated at %s.",station.origin);
+            }
+          }
+          // Add the seating if available
+          switch (station.service[0].classesAvailable) {
+            case 1:
+              strcat(line2[numMessages],firstClassSeating);
+              break;
+            case 2:
+              strcat(line2[numMessages],standardClassSeating);
+              break;
+            case 3:
+              strcat(line2[numMessages],dualClassSeating);
+              break;
+          }
+          if (line2[numMessages][0]) numMessages++;
+        }
+        if (station.service[0].trainLength) {
+          // Add the number of carriages message
+          sprintf(line2[numMessages],"This train is formed of %d coaches.",station.service[0].trainLength);
+          numMessages++;
+        }
+      }
+
+      if (noScrolling && station.numServices>1) {
+        drawServiceLine(1,LINE2);
       }
     } else {
-      // The train is not cancelled
-      if (station.service[0].isDelayed && station.serviceMessage[0]) {
-        // The train is delayed and there's a reason
-        strcpy(line2[0],station.serviceMessage);
-        numMessages++;
-      }
-      if (station.calling[0]) {
-        // Add the calling stops message
-        sprintf(line2[numMessages],"Calling at: %s",station.calling);
-        numMessages++;
-      }
-      if (strcmp(station.origin, station.location)==0) {
-        // Service originates at this station
-        if (station.service[0].opco[0]) {
-          sprintf(line2[numMessages],"This %s service starts here.",station.service[0].opco);
-        } else {
-          strcpy(line2[numMessages],"This service starts here.");
-        }
-        // Add the seating if available
-        switch (station.service[0].classesAvailable) {
-          case 1:
-            strcat(line2[numMessages],firstClassSeating);
-            break;
-          case 2:
-            strcat(line2[numMessages],standardClassSeating);
-            break;
-          case 3:
-            strcat(line2[numMessages],dualClassSeating);
-            break;
-        }
-        numMessages++;
-      } else {
-        // Service originates elsewhere
-        strcpy(line2[numMessages],"");
-        if (station.service[0].opco[0]) {
-          if (station.origin[0]) {
-            sprintf(line2[numMessages],"This is the %s service from %s.",station.service[0].opco,station.origin);
-          } else {
-            sprintf(line2[numMessages],"This is the %s service.",station.service[0].opco);
-          }
-        } else {
-          if (station.origin[0]) {
-            sprintf(line2[numMessages],"This service originated at %s.",station.origin);
-          }
-        }
-        // Add the seating if available
-        switch (station.service[0].classesAvailable) {
-          case 1:
-            strcat(line2[numMessages],firstClassSeating);
-            break;
-          case 2:
-            strcat(line2[numMessages],standardClassSeating);
-            break;
-          case 3:
-            strcat(line2[numMessages],dualClassSeating);
-            break;
-        }
-        if (line2[numMessages][0]) numMessages++;
-      }
-      if (station.service[0].trainLength) {
-        // Add the number of carriages message
-        sprintf(line2[numMessages],"This train is formed of %d coaches.",station.service[0].trainLength);
-        numMessages++;
-      }
-    }
-
-    if (noScrolling && station.numServices>1) {
-      drawServiceLine(1,LINE2);
+      blankArea(0,LINE2,256,LINE4-LINE2);
+      u8g2.setFont(NatRailTall12);
+      centreText("There are no scheduled services at this station.",LINE1-1);
     }
   } else {
-    blankArea(0,LINE2,256,LINE4-LINE2);
-    u8g2.setFont(NatRailTall12);
-    centreText("There are no scheduled services at this station.",LINE1-1);
+    msgLine = LINE4;
+    if (schedulerActive || carouselActive) {
+      if (schedulerActive) {
+        u8g2.drawStr(0,LINE4,"\x87");
+        msgMargin = 11;
+      } else if (carouselActive) {
+        u8g2.drawStr(0,LINE4-1,"\x88");
+        msgMargin = 12;
+      }
+      msgWidth = SCREEN_WIDTH - msgMargin;
+    }
   }
 
   // Check if RSS should be inserted before nrcc messages
@@ -2518,12 +2658,12 @@ void departureBoardLoop() {
   }
 
   if (millis()>timer && numMessages && !isScrollingStops && !isSleeping && lastUpdateResult!=UPD_UNAUTHORISED && lastUpdateResult!=UPD_DATA_ERROR && !noScrolling && !noDataLoaded) {
-    // Need to start a new scrolling line 2
+    // Need to start a new scrolling messages line
     prevMessage = currentMessage;
     prevScrollStopsLength = scrollStopsLength;
     currentMessage++;
     if (currentMessage>=numMessages) currentMessage=0;
-    scrollStopsXpos=0;
+    scrollStopsXpos=msgMargin;
     scrollStopsYpos=10;
     scrollStopsLength = getStringWidth(line2[currentMessage]);
     isScrollingStops=true;
@@ -2540,7 +2680,7 @@ void departureBoardLoop() {
     }
   }
 
-  if (millis()>serviceTimer && !isScrollingService && !isSleeping && !noDataLoaded && lastUpdateResult!=UPD_UNAUTHORISED && lastUpdateResult!=UPD_DATA_ERROR) {
+  if (millis()>serviceTimer && !isScrollingService && !isSleeping && !noServiceClockIsActive && !noDataLoaded && lastUpdateResult!=UPD_UNAUTHORISED && lastUpdateResult!=UPD_DATA_ERROR) {
     // Need to change to the next service if there is one
     if ((station.numServices <= 1 || (station.numServices==2 && noScrolling)) && !weatherMsg[0]) {
       // There's no other services and no weather so just so static attribution.
@@ -2561,36 +2701,39 @@ void departureBoardLoop() {
   }
 
   if (isScrollingStops && millis()>timer && !isSleeping && !noScrolling) {
-    blankArea(0,LINE2,256,9);
+    blankArea(msgMargin,msgLine,msgWidth,9);
+    u8g2.setClipWindow(msgMargin,msgLine,SCREEN_WIDTH,msgLine+9);
     if (scrollStopsYpos) {
       // we're scrolling up the message initially
-      u8g2.setClipWindow(0,LINE2,256,LINE2+9);
       // if the previous message didn't scroll then we need to scroll it up off the screen
-      if (prevScrollStopsLength && prevScrollStopsLength<256 && strncmp("Calling",line2[prevMessage],7)) centreText(line2[prevMessage],scrollStopsYpos+LINE2-12);
-      if (scrollStopsLength<256 && strncmp("Calling",line2[currentMessage],7)) centreText(line2[currentMessage],scrollStopsYpos+LINE2-2); // Centre text if it fits
-      else u8g2.drawStr(0,scrollStopsYpos+LINE2-2,line2[currentMessage]);
-      u8g2.setMaxClipWindow();
+      if (prevScrollStopsLength && prevScrollStopsLength<msgWidth) {
+        if (strncmp("Calling",line2[prevMessage],7)) centreText(line2[prevMessage],scrollStopsYpos+msgLine-12,msgMargin,msgWidth);
+        else u8g2.drawStr(msgMargin,scrollStopsYpos+msgLine-12,line2[prevMessage]); // Handle very short calling at lists
+      }
+      if (scrollStopsLength<msgWidth && strncmp("Calling",line2[currentMessage],7)) centreText(line2[currentMessage],scrollStopsYpos+msgLine-2,msgMargin,msgWidth); // Centre text if it fits
+      else u8g2.drawStr(msgMargin,scrollStopsYpos+msgLine-2,line2[currentMessage]);
       scrollStopsYpos--;
       if (scrollStopsYpos==0) timer=millis()+1500;
     } else {
       // we're scrolling left
-      if (scrollStopsLength<256 && strncmp("Calling",line2[currentMessage],7)) centreText(line2[currentMessage],LINE2-1); // Centre text if it fits
-      else u8g2.drawStr(scrollStopsXpos,LINE2-1,line2[currentMessage]);
-      if (scrollStopsLength < 256) {
+      if (scrollStopsLength<msgWidth && strncmp("Calling",line2[currentMessage],7)) centreText(line2[currentMessage],msgLine-1,msgMargin,msgWidth); // Centre text if it fits
+      else u8g2.drawStr(scrollStopsXpos,msgLine-1,line2[currentMessage]);
+      if (scrollStopsLength < msgWidth) {
         // we don't need to scroll this message, it fits so just set a longer timer
         timer=millis()+6000;
         isScrollingStops=false;
       } else {
         scrollStopsXpos--;
-        if (scrollStopsXpos < -scrollStopsLength) {
+        if (scrollStopsXpos < -scrollStopsLength+msgMargin) {
           isScrollingStops=false;
           timer=millis()+500;  // pause before next message
         }
       }
     }
+    u8g2.setMaxClipWindow();
   }
 
-  if (isScrollingService && millis()>serviceTimer && !isSleeping) {
+  if (isScrollingService && millis()>serviceTimer && !isSleeping && !noServiceClockIsActive) {
     blankArea(0,LINE3,256,9);
     if (scrollServiceYpos) {
       // we're scrolling the service into view
@@ -2615,7 +2758,7 @@ void departureBoardLoop() {
     // so we need to wait any additional ms not used by processing so far before sending the frame to the display controller
     delayMs = frameTimeRail - (millis()-refreshTimer);
     if (delayMs>0) delay(delayMs);
-    u8g2.updateDisplayArea(0,3,32,4);
+    if (!noServiceClockIsActive) u8g2.updateDisplayArea(0,3,32,4); else u8g2.updateDisplayArea(0,6,32,2);
     refreshTimer=millis();
   }
 }
@@ -2992,6 +3135,7 @@ void fetchDeparturesTask(void *pvParameters) {
 // Setup code
 //
 void setup(void) {
+
   // These are the default wsdl XML SOAP entry points. They can be overridden in the config.json file if necessary
   strlcpy(wsdlHost,"lite.realtime.nationalrail.co.uk",sizeof(wsdlHost));
   strlcpy(wsdlAPI,"/OpenLDBWS/wsdl.aspx?ver=2021-11-01",sizeof(wsdlAPI));
@@ -3370,19 +3514,23 @@ void loop(void) {
 
   if (button.wasShortTapped()) {
     if (isSleeping) {
-      // force awake
-      forcedAwake = true;
+      if (NSEclockIsActive) NSEclockIsActive = false;
+      else forcedAwake = true;
     } else {
       switchToNextMode();
     }
+  } else if (button.wasLongTapped() && longPressClock) {
+    NSEclockIsActive = !NSEclockIsActive;
   }
 
   if (millis()-lastTimeUpdate >= 100) {
     // Update the current time
+    int prevSecond = timeinfo.tm_sec;
     if (getLocalTime(&timeinfo)) {
       sprintf(currentTime,"%02d:%02d:%02d",timeinfo.tm_hour,timeinfo.tm_min,timeinfo.tm_sec);
       lastTimeUpdate = millis();
       if (millis()>3888000000 && timeinfo.tm_hour==3) ESP.restart(); // Reboot every 45 days at 3am
+      if (isSleeping && (useNSEclockForSleep || NSEclockIsActive) && prevSecond != timeinfo.tm_sec) drawNSEclock();  // Update the large clock
     }
   }
 
@@ -3400,13 +3548,13 @@ void loop(void) {
   bool wasSleeping = isSleeping;
   isSleeping = isSnoozing();
 
-  if (isSleeping && millis()>timer) {       // If the "screensaver" is active, change the screen every 8 seconds
+  if (isSleeping && !useNSEclockForSleep && !NSEclockIsActive && millis()>timer) {       // If the "screensaver" is active, change the screen every 8 seconds
     drawSleepingScreen();
     timer=millis() + SCREENSAVERINTERVAL;
   } else if (wasSleeping && !isSleeping) {
     // Exit sleep mode cleanly
     softResetBoard(MODE_LOADCONFIG);
-  }
+  } else if (isSleeping && !wasSleeping && useNSEclockForSleep && !NSEclockIsActive) u8g2.setContrast(DIMMED_BRIGHTNESS);
 
   // WiFi Status icon
   if (WiFi.status() != WL_CONNECTED && wifiConnected) {

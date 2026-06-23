@@ -1,6 +1,6 @@
 # departures-board [![License Badge](https://img.shields.io/badge/BY--NC--SA%204.0%20License-grey?style=flat&logo=creativecommons&logoColor=white)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
-This is an ESP32 based Departures Board replicating those at many UK railway stations (using data provided by National Rail's public API), London Underground Arrivals boards (using data provided by TfL) and UK wide bus stops (using data provided by bustimes.org). This implementation uses a 3.12" OLED display panel with SSD1322 display controller onboard, plus an optional TTP223 touch sensor. STL files are also provided for 3D printing the custom desktop case. A small number of pre-assembled departure boards are also available exclusively from our [store](https://store.gadec.co.uk).
+This is an ESP32 based Departures Board replicating those at many UK railway stations (using data provided by National Rail's public API), London Underground Arrivals boards (using data provided by TfL) and UK wide bus stops (using data provided by bustimes.org). This implementation uses a 3.12" OLED display panel with SSD1322 display controller onboard, plus an optional TTP223 touch sensor. STL files are also provided for 3D printing the custom desktop case. Pre-assembled departure boards are also available exclusively from our [store](https://store.gadec.co.uk).
 
 A model railway (00 gauge) version of this project is also available [here](https://github.com/gadec-uk/tiny-departures-board).
 
@@ -24,6 +24,7 @@ A model railway (00 gauge) version of this project is also available [here](http
 * Fully-featured browser based configuration screens - choose any station on the UK network / London Tube & DLR network / UK Bus Stops
 * Automatic firmware updates (optional)
 * Displays the weather at the selected location (optional)
+* Full-screen, Network SouthEast style station clock (optional)
 * STL files provided for custom 3D printed case
 
 ![Image](https://github.com/user-attachments/assets/723f58f3-bd6f-44cf-a6cc-9dcaf394bd19)
@@ -72,7 +73,7 @@ Solder the 4 SPI connections, plus power and ground. The wires **MUST** be solde
 
 ### Installing the firmware
 
-The project uses the Arduino framework and the ESP32 v3.2.0 core. If you want to build from source, you'll need [PlatformIO](https://platformio.org). The software is designed for, and makes use of, a dual-core ESP32 processor. If you attempt to target and compile for a single core ESP32 variant the experience will be suboptimal at best.
+The project uses the Arduino framework and the ESP32 v3.3.9 core. If you want to build from source, you'll need [PlatformIO](https://platformio.org). The software is designed for, and makes use of, a dual-core ESP32 processor. If you attempt to target and compile for a single core ESP32 variant the experience will be suboptimal at best.
 
 The easiest way to install the firmware for the first time is to use the online web based installer [here](https://departures-board.github.io). You will need to use Chrome or Edge as your browser as Safari/Firefox do not support Web Serial.
 
@@ -101,7 +102,7 @@ Subsequent updates can be carried out automatically over-the-air or you can manu
 
 ### First time configuration
 
-WiFiManager is used to setup the initial WiFi connection on first boot. The ESP32 will broadcast a temporary WiFi network named "Departures Board", connect to the network and follow the on-screen instuctions. You can also watch a video walkthrough of setup and configuration process below.
+WiFiManager is used to setup the initial WiFi connection on first boot. The ESP32 will broadcast a temporary WiFi network named "Departures Board", connect to the network and follow the on-screen instuctions. You can also watch a video walkthrough of setup and configuration process below (this video shows an earlier version of the firmware, but the process is the same).
 [![Departures Board Setup Video](https://github.com/user-attachments/assets/176f0489-d846-42de-913f-eb838d9ab941)](https://youtu.be/PZVyE_SoLBU)
 
 Once the ESP32 has established an Internet connection, the next step is to enter your API keys (if you do not enter a National Rail token, the board will only operate in Tube and Bus modes). Finally, select a station location. Start typing the location name and valid choices will be displayed as you type.
@@ -116,9 +117,9 @@ At start-up, the ESP32's IP address is displayed. To change the station or to co
 - **Add to Scheduler** - adds the current configured station/tube/bus stop to the scheduler (see schedule tab) to switch based on time of day.
 - **Add to Carousel** - adds the current configured station/tube/bus stop to the carousel (see schedule tab) to switch views after a period of time. 
 - **Underground Station** - start typing a few characters of an Underground or DLR station name and select from the drop-down station picker displayed (London Underground mode).
-- **Filter by Line** - Select the desired underground line or all lines for all arrivals.
-- **Filter by Direction** - Select the desired direction or any direction for all arrivals.
-- **Bus Stop ATCO code** - Type the ATCO number of the bus stop you want to monitor (see [below](#bus-stop-atco-codes) for details).
+- **Filter by Line** - select the desired underground line or all lines for all arrivals.
+- **Filter by Direction** - select the desired direction or any direction for all arrivals.
+- **Bus Stop ATCO code** - type the ATCO number of the bus stop you want to monitor (see [below](#bus-stop-atco-codes) for details).
 - **Only show these Bus services** - filter buses by service numbers (enter a list of the service numbers, comma separated).
 - **Recently verfied ATCO codes** - quickly select from recently used bus stop ATCO codes.
 #### Options tab ####
@@ -129,20 +130,23 @@ At start-up, the ESP32's IP address is displayed. To change the station or to co
 - **Show station messages** - displays station and service messages (Rail and Tube modes).
 - **Show service location** - displays the current location of the next tube train that is due to arrive (Tube mode).
 - **Show platform numbers if available** - deselecting this option will hide platform numbers (National Rail).
-- **Show service ordinal numbers** - Displays "2nd","3rd","4th" etc. next to the service times (National Rail).
-- **Show service last seen location** - Adds the last reported location and time of a service to the Calling at list (National Rail).
-- **Wait for Calling at list to complete** - Waits for the Calling at list to finish scrolling before changing the primary service.
-- **Wait for Messages or RSS to complete** - Waits for the current service message or RSS headline feed to finish scrolling before changing the primary service.
+- **Show service ordinal numbers** - displays "2nd","3rd","4th" etc. next to the service times (National Rail).
+- **Show service last seen location** - adds the last reported location and time of a service to the Calling at list (National Rail).
+- **Wait for Calling at list to complete** - waits for the Calling at list to finish scrolling before changing the primary service.
+- **Wait for Messages or RSS to complete** - waits for the current service message or RSS headline feed to finish scrolling before changing the primary service.
+- **Full screen clock if no train services** - displays the full screen, Network SouthEast style station clock if there are no scheduled services at the selected railway station.
 - **Enable automatic firmware updates at startup** - automatically checks for AND installs the latest firmware from this repository when the system starts up.
 - **Enable daily check for firmware updates** - when enabled, the system will check for and install any updates just after midnight if the board is powered on.
 - **Enable overnight sleep mode (screensaver)** - if you're running the board 24/7, you can help prevent screen burn-in by enabling this option overnight.
 - **Switch off display during sleep mode** - turns off the display completely during sleep mode, otherwise displays the date & time.
+- **Full screen clock during sleep mode** - displays the full screen station clock during sleep mode.
 #### Schedule tab ####
-- **Enable scheduler** - Automatically switches between views based on the configured time of each entry in the scheduler list below.
-- **Enable carousel** - Automatically switches between views based on the configured view time of each entry in the carousel list below. 
+- **Enable scheduler** - automatically switches between views based on the configured time of each entry in the scheduler list below.
+- **Enable carousel** - automatically switches between views based on the configured view time of each entry in the carousel list below. 
 #### Advanced Tab ####
-- **Enable touch sensor** - A tap switches between configured modes (rail/tube/bus) or wakes from sleep. If the Scheduler or Carousel mode is active, a tap switch to the next location in the list. Obviously, do not enable this option if you have not installed a TTP223 touch sensor.
+- **Enable touch sensor** - a tap switches between configured modes (rail/tube/bus) or wakes from sleep. If the Scheduler or Carousel mode is active, a tap switch to the next location in the list. Obviously, do not enable this option if you have not installed a TTP223 touch sensor.
 - **Wake from sleep by touch for** - if the board is in screensaver mode and the touch sensor is enabled, a tap will wake the board and it will remain awake for the selected number of minutes (the countdown timer resets on each tap).
+- **Long press displays full screen clock** - a long tap switches to the full screen station clock. A short tap will revert to normal operation.
 - **Flip the display 180°** - Rotates the display (the case design provides two different viewing angles depending on orientation).
 - **Set custom hostname for this board** - change the hostname from the default "DeparturesBoard", useful if you are running multiple boards.
 - **Custom (non-UK) time zone (only for clock)** - if you're not based in the UK you can set the clock to display in your local time zone (see [below](#custom-time-zones) for details).

@@ -9,10 +9,12 @@
  * To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/4.0/
  */
 #pragma once
+#include <WiFiClientSecure.h>
 #include <sharedDataStructs.h>
 #include <responseCodes.h>
 
 #define MAXBUSFILTERSIZE 25
+#define MAX_SCANNED_PAGES 5
 
 #define PBT_START 0
 #define PBT_HEADER 1
@@ -30,6 +32,9 @@ class busDataClient {
         int id=0;
         bool maxServicesRead = false;
         bool boardChanged = false;
+        long dataReceived;
+        bool bChunked;
+        char pageOffset[40];
         busTubeStation* xBusStop = nullptr;
         sharedBufferSpace* js = nullptr;
 
@@ -38,6 +43,8 @@ class busDataClient {
         void trim(char* &start, char* &end);
         bool equalsIgnoreCase(const char* a, int a_len, const char* b);
         bool serviceMatchesFilter(const char* filter, const char* serviceId);
+        bool isDuplicateService(int serviceIndex);
+        int fetchDeparturesPage(const char *locationId, const char *filter);
 
     public:
 

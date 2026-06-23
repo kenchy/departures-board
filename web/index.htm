@@ -356,6 +356,23 @@
                   </div>
                 </div>
 
+                <div id="optShowClockNoServices" style="display:none">
+                  <hr class="my-0 opacity-10">
+                  <div class="py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <div>
+                        <label class="form-check-label d-inline-block" for="showClockNoServices">Full screen clock if no train services</label>
+                        <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="right"
+                          title="Displays the full screen Network SouthEast style station clock if no services are available at the selected station. Service and RSS messages are also shown if selected."
+                          style="cursor:pointer;"></i>
+                      </div>
+                      <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" id="showClockNoServices" role="switch">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <hr class="my-0 opacity-10">
                 <div class="py-3">
                   <div class="d-flex justify-content-between align-items-center">
@@ -408,6 +425,7 @@
                       </select>
                     </div>
                   </div>
+                  <hr class="mb-0 opacity-10">
                   <div class="py-3">
                     <div class="d-flex justify-content-between align-items-center">
                       <div>
@@ -415,6 +433,22 @@
                       </div>
                       <div class="form-check form-switch mb-0">
                         <input class="form-check-input" type="checkbox" id="darkSleep" role="switch">
+                      </div>
+                    </div>
+                  </div>
+                  <div id="optSleepUseBigClock">
+                    <hr class="my-0 opacity-10">
+                    <div class="py-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                          <label class="form-check-label d-inline-block" for="sleepUseBigClock">Full screen clock during sleep mode</label>
+                          <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" data-bs-placement="right"
+                          title="Displays the full screen Network SouthEast style station clock during sleep mode. Note: using this option will be less effective at preventing screen burn."
+                          style="cursor:pointer;"></i>
+                        </div>
+                        <div class="form-check form-switch mb-0">
+                          <input class="form-check-input" type="checkbox" id="sleepUseBigClock" role="switch">
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -482,6 +516,20 @@
                       <option value="900">15 minutes</option>
                       <option value="1800">30 minutes</option>
                     </select>
+                  </div>
+                </div>
+                <div id="optLongPressClock" style="display:none">
+                  <hr class="my-0 opacity-10">
+                  <div class="py-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <div>
+                        <label class="form-check-label d-block" for="longPressClock">Long press displays full screen clock</label>
+                        <div class="small text-body-secondary">Short tap to hide to hide the clock again</div>
+                      </div>
+                      <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" id="longPressClock" role="switch">
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -773,6 +821,7 @@
       enableSleep: document.getElementById("enableSleep"),
       sleepStart: document.getElementById("sleepStart"),
       sleepEnd: document.getElementById("sleepEnd"),
+      darkSleep: document.getElementById("darkSleep"),
       saveButton: document.getElementById("save"),
       clearButton: document.getElementById("clearFilter"),
       fwinfo: document.getElementById("fwinfo"),
@@ -1219,13 +1268,14 @@
     });
     elements.tubeDirectionFilter.addEventListener("change", (e) => { appState.tubeDirection = e.target.value; });
     elements.enableSleep.addEventListener("change", toggleSleepSelectors);
+    elements.darkSleep.addEventListener("change", () => { show("optSleepUseBigClock", !isChecked("darkSleep"));})
     elements.brightness.addEventListener("change", handleBrightnessChange);
     elements.clearButton.addEventListener("click", handleClearFilter);
     elements.verifyAtcoButton.addEventListener("click", handleVerifyAtco);
     elements.clearHistoryButton.addEventListener("click", handleClearHistory);
     elements.busAtcoHistoryList.addEventListener('change', handleAtcoHistorySelect);
     elements.busFilter.addEventListener("blur", validateBusFilter);
-    elements.optTouch.addEventListener("change", () => { show("optStayAwake", isChecked("optTouch"));});
+    elements.optTouch.addEventListener("change", () => { show("optStayAwake", isChecked("optTouch")); show("optLongPressClock", isChecked("optTouch"));});
     elements.optTZ.addEventListener("change", () => { show("customTZbox", isChecked("optTZ")); if (!isChecked("optTZ")) { elements.customTZ.value = ""; appState.tzOK = true; } });
     elements.customTZ.addEventListener("blur", validateTZ);
     elements.optHost.addEventListener("change", () => { show("customHostbox", isChecked("optHost")); if (!isChecked("optHost")) { elements.customHost.value = ""; appState.hostnameOK = true; } });
@@ -1501,6 +1551,7 @@
     function toggleSleepSelectors() {
       const enabled = elements.enableSleep.checked;
       show("sleepTimeSelectors", enabled);
+      show("optSleepUseBigClock", !isChecked("darkSleep") && enabled);
     }
 
     function toggleBusFilterBox() {
@@ -1526,6 +1577,7 @@
       show("optShowLastSeen", rail && (appState.dataSource == 0 || appState.validRdgServiceToken));
       show("optShowFullCalling",rail);
       show("optShowFullMsgs", rail || tube);
+      show("optShowClockNoServices", rail);
       show("optFastRefresh", rail);
       show("optNoScroll", rail || tube);
       show("optRssFeed", rail || tube);
@@ -1750,8 +1802,10 @@
 
       setCheckbox("enableSleep", s.sleep);
       setCheckbox("darkSleep", s.darkSleep);
+      setCheckbox("sleepUseBigClock", s.sleepUseBigClock);
       setCheckbox("showDate", s.showDate);
       setCheckbox("enableBuses", s.showBus);
+      setCheckbox("showClockNoServices", s.showClockNoServices);
       setCheckbox("enableFirmware", s.update);
       setCheckbox("enableFirmwareDaily", s.updateDaily);
       setCheckbox("enableWeather", s.weather);
@@ -1766,9 +1820,11 @@
       setCheckbox("noScrolling", s.noScroll);
       setCheckbox("optFlip", s.flip);
       setCheckbox("optTouch", s.touch);
+      setCheckbox("longPressClock", s.longPressClock);
       setCheckbox("optCommsIcon", s.dataIcon);
       setCheckbox("rssPriority", s.rssPriority);
       show("optStayAwake",s.touch);
+      show("optLongPressClock",s.touch);
 
       elements.sleepStart.value = s.sleepStarts;
       elements.sleepEnd.value = s.sleepEnds;
@@ -1779,6 +1835,7 @@
       const optionExists = rssSelect.querySelector(`option[value="${rssUrl}"]`);
       rssSelect.value = optionExists ? rssUrl : "";
       toggleSleepSelectors();
+      show("optSleepUseBigClock",(s.sleep && !s.darkSleep));
       document.getElementById('enableScheduler').checked = s.enableScheduler || false;
       document.getElementById('enableCarousel').checked = s.enableCarousel || false;
       appState.scheduler = s.scheduler || [];
@@ -1934,6 +1991,7 @@
       s.brightness = parseInt(elements.brightness.value);
       s.sleep = isChecked("enableSleep");
       s.darkSleep = isChecked("darkSleep");
+      s.sleepUseBigClock = isChecked("sleepUseBigClock");
       s.showDate = isChecked("showDate");
       s.showBus = isChecked("enableBuses");
       s.showServiceMsgs = isChecked("showServiceMsgs");
@@ -1946,10 +2004,12 @@
       s.showLastSeen = isChecked("showLastSeen");
       s.showFullCalling = isChecked("showFullCalling");
       s.showFullMsgs = isChecked("showFullMsgs");
+      s.showClockNoServices = isChecked("showClockNoServices");
       s.fastRefresh = isChecked("enableFastRefresh");
       s.noScroll = isChecked("noScrolling");
       s.flip = isChecked("optFlip");
       s.touch = isChecked("optTouch");
+      s.longPressClock = isChecked("longPressClock");
       s.dataIcon = isChecked("optCommsIcon");
       s.sleepStarts = parseInt(elements.sleepStart.value);
       s.sleepEnds = parseInt(elements.sleepEnd.value);
