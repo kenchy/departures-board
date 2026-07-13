@@ -40,10 +40,13 @@ bool raildataXmlClient::compareTimes(const rdiService& a, const rdiService& b) {
 //
 int raildataXmlClient::init(const char *wsdlHost, const char *wsdlAPI)
 {
+    if (WDSLok) return UPD_SUCCESS; // Already loaded so just return success
+    
     WiFiClientSecure httpsClient;
     httpsClient.setInsecure();
-    httpsClient.setTimeout(10000);
-    httpsClient.setConnectionTimeout(10000);
+    httpsClient.setTimeout(8000);
+    httpsClient.setConnectionTimeout(8000);
+    httpsClient.setNoDelay(false);
 
     int retryCounter=0; //retry counter
     while((!httpsClient.connect(wsdlHost, 443)) && (retryCounter < 10)){
@@ -90,7 +93,7 @@ int raildataXmlClient::init(const char *wsdlHost, const char *wsdlAPI)
     }
 
     char c;
-    unsigned long dataSendTimeout = millis() + 8000UL;
+    unsigned long dataSendTimeout = millis() + 12000UL;
     loadingWDSL = true;
     xmlStreamingParser parser;
     parser.setListener(this);
@@ -116,6 +119,7 @@ int raildataXmlClient::init(const char *wsdlHost, const char *wsdlAPI)
       if (delim>0) {
         soapURL.substring(8,delim).toCharArray(soapHost,sizeof(soapHost));
         soapURL.substring(delim).toCharArray(soapAPI,sizeof(soapAPI));
+        WDSLok = true;
         return UPD_SUCCESS;
       }
     }

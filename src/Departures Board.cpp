@@ -1770,7 +1770,13 @@ void drawServiceLine(int line, int y) {
 
 // Draw the initial Departures Board
 void drawStationBoard() {
-  if (showClockNoServices && station.numServices == 0) noServiceClockIsActive = true; else noServiceClockIsActive = false;
+  if (showClockNoServices && station.numServices == 0) {
+    if (!noServiceClockIsActive) firstLoad = true;
+    noServiceClockIsActive = true;
+  } else { 
+    if (noServiceClockIsActive) firstLoad = true;
+    noServiceClockIsActive = false;
+  }
   numMessages=0;
   if (firstLoad) {
     // Clear the entire screen for the first load since boot up/wake from sleep

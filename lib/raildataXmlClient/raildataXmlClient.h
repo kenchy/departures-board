@@ -38,6 +38,7 @@ class raildataXmlClient: public xmlListener {
         int tagLevel = 0;
         bool loadingWDSL=false;
         bool fetchingDepartures;
+        bool WDSLok=false;
         String soapURL = "";
         char soapHost[MAXHOSTSIZE];
         char soapAPI[MAXAPIURLSIZE];
