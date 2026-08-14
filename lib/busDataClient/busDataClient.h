@@ -39,6 +39,7 @@ class busDataClient {
         sharedBufferSpace* js = nullptr;
 
         String stripTag(String html);
+        static bool compareTimes(const busTubeService& a, const busTubeService& b);
         void replaceWord(char* input, const char* target, const char* replacement);
         void trim(char* &start, char* &end);
         bool equalsIgnoreCase(const char* a, int a_len, const char* b);

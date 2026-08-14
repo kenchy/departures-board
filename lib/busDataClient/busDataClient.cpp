@@ -11,6 +11,8 @@
 
 #include <busDataClient.h>
 #include <WiFiClientSecure.h>
+#include <time.h>
+#include <cstring>
 
 busDataClient::busDataClient(busTubeStation *station, sharedBufferSpace *sharedBuffer) : xBusStop(station), js(sharedBuffer) {}
 
@@ -26,6 +28,24 @@ String busDataClient::stripTag(String html) {
         result.trim();
     }
     return result;
+}
+
+// Custom comparator function to compare time strings
+bool busDataClient::compareTimes(const busTubeService& a, const busTubeService& b) {
+    // Convert time strings to integers for comparison
+    int hour1, minute1, hour2, minute2;
+    sscanf(a.sortTime, "%d:%d", &hour1, &minute1);
+    sscanf(b.sortTime, "%d:%d", &hour2, &minute2);
+
+    // Compare hours first
+    if (hour1 != hour2) {
+        // Fudge for rollover at midnight
+        if (hour1 < 7 && hour2 > 20) return false;
+        if (hour2 < 7 && hour1 > 20) return true;
+        else return hour1 < hour2;
+    }
+    // If hours are equal, compare minutes
+    return minute1 < minute2;
 }
 
 //
@@ -326,13 +346,24 @@ int busDataClient::fetchDepartures(rdStation *station, const char *locationId, c
     do {
         int fetchPageResult = fetchDeparturesPage(locationId,filter);
         if (fetchPageResult != UPD_SUCCESS) {
-            return fetchPageResult; // return immediately if failure 
+            return fetchPageResult; // return immediately if failure
         }
         pagesLoaded++;
     } while (xBusStop->numServices < MAXBOARDSERVICES && strlen(pageOffset) && pagesLoaded < MAX_SCANNED_PAGES);
 
-    // Remove &amp; from destination name
-    for (int i=0;i<xBusStop->numServices;i++) replaceWord(xBusStop->service[i].destinationName,"&amp;","&");
+    // Remove &amp; from destination name, set sort time
+    for (int i=0;i<xBusStop->numServices;i++) {
+        replaceWord(xBusStop->service[i].destinationName,"&amp;","&");
+        if (isDigit(xBusStop->service[i].expected[0])) {
+            strcpy(xBusStop->service[i].sortTime,xBusStop->service[i].expected);
+        } else {
+            strcpy(xBusStop->service[i].sortTime,xBusStop->service[i].scheduled);
+        }
+    }
+
+    // Sort the services by actual departure time
+    size_t arraySize = xBusStop->numServices;
+    std::sort(xBusStop->service, xBusStop->service+arraySize,compareTimes);
 
     // Check if any of the services have changed
     if (xBusStop->numServices != station->numServices) boardChanged=true;

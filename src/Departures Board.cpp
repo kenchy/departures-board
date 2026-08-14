@@ -1773,7 +1773,7 @@ void drawStationBoard() {
   if (showClockNoServices && station.numServices == 0) {
     if (!noServiceClockIsActive) firstLoad = true;
     noServiceClockIsActive = true;
-  } else { 
+  } else {
     if (noServiceClockIsActive) firstLoad = true;
     noServiceClockIsActive = false;
   }
@@ -3141,7 +3141,6 @@ void fetchDeparturesTask(void *pvParameters) {
 // Setup code
 //
 void setup(void) {
-
   // These are the default wsdl XML SOAP entry points. They can be overridden in the config.json file if necessary
   strlcpy(wsdlHost,"lite.realtime.nationalrail.co.uk",sizeof(wsdlHost));
   strlcpy(wsdlAPI,"/OpenLDBWS/wsdl.aspx?ver=2021-11-01",sizeof(wsdlAPI));
@@ -3243,7 +3242,7 @@ void setup(void) {
       delete body; // Clean up memory
       request->_tempObject = nullptr;
 
-      if ((!railIsSet && !tubeIsSet && !busIsSet) || request->hasParam("reboot")) {
+      if ((!railIsSet && !tubeIsSet && !busIsSet) || (!nrToken[0] && rdmDeparturesApiKey=="" && boardMode==MODE_RAIL) || request->hasParam("reboot")) {
         // First time setup or base config change, we need a full reboot
         sendResponse(200,"Configuration saved. The Departures Board will now restart.",request);
         restartTimer.once(1, []() { ESP.restart(); });
