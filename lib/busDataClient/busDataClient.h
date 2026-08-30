@@ -12,6 +12,7 @@
 #include <WiFiClientSecure.h>
 #include <sharedDataStructs.h>
 #include <responseCodes.h>
+#include <time.h>
 
 #define MAXBUSFILTERSIZE 25
 #define MAX_SCANNED_PAGES 5
@@ -35,6 +36,7 @@ class busDataClient {
         long dataReceived;
         bool bChunked;
         char pageOffset[40];
+        struct tm timeinfo;
         busTubeStation* xBusStop = nullptr;
         sharedBufferSpace* js = nullptr;
 

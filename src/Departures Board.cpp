@@ -949,19 +949,55 @@ void showCRSErrorScreen() {
   u8g2.sendBuffer();
 }
 
-void showFirmwareUpdateWarningScreen(const char *msg, int secs) {
+void showFirmwareUpdateWarningScreen(const char *msg) {
   char countdown[60];
+  int x=SCREEN_WIDTH;
+  int secs=30;
+  unsigned long ticks,tocks;
+
   u8g2.clearBuffer();
   u8g2.setFont(NatRailTall12);
   centreText("Firmware Update Available",-1);
   u8g2.setFont(NatRailSmall9);
   centreText("A new version of the Departures Board firmware",14);
-  sprintf(countdown,"will be installed in %d seconds. This provides:",secs);
-  centreText(countdown,26);
-  sprintf(countdown,"\"%s\"",msg);
-  centreText(countdown,40);
   centreText("* DO NOT REMOVE THE POWER DURING THE UPDATE *",54);
-  u8g2.sendBuffer();
+
+  int msgWidth = getStringWidth(msg);
+  if (msgWidth < SCREEN_WIDTH-8) {
+    sprintf(countdown,"\"%s\"",msg);
+    centreText(countdown,40);
+  } else {
+    sprintf(rssMessage,"\"%s\"",msg);
+    while (strlen(rssMessage) + strlen(msg) + 3 < MAXMESSAGESIZE) {
+      strcat(rssMessage,"\x90\"");
+      strcat(rssMessage,msg);
+      strcat(rssMessage,"\"");
+    }
+    msgWidth = getStringWidth(rssMessage);
+    secs=45;
+  }
+  while (secs>=0) {
+    sprintf(countdown,"will be installed in %d seconds. This provides:",secs);
+    blankArea(0,26,SCREEN_WIDTH,10);
+    centreText(countdown,26);
+    if (msgWidth < SCREEN_WIDTH) {
+      u8g2.sendBuffer();
+      delay(1000);
+      secs--;
+    } else {
+      ticks = millis()+1000;
+      while (millis()<ticks) {
+        tocks = millis() + 25;
+        blankArea(0,40,SCREEN_WIDTH,10);
+        u8g2.drawStr(x,40,rssMessage);
+        u8g2.sendBuffer();
+        x--;
+        if (x < -msgWidth) x=SCREEN_WIDTH;
+        while (millis()<tocks) delay(1);
+      }
+      secs--;
+    }
+  }
 }
 
 void showFirmwareUpdateProgress(int percent) {
@@ -1316,8 +1352,8 @@ void loadConfig(bool coldBoot = false, boardModes requestedMode = MODE_LOADCONFI
         if (settings["rssPriority"].is<bool>())       rssPriority = settings["rssPriority"];
 
         if (requestedMode != MODE_NEXTMODE) {
-          if (settings[F("mode")].is<int>())            boardMode = settings[F("mode")];
-          else if (settings[F("tube")].is<bool>())      boardMode = settings[F("tube")] ? MODE_TUBE : MODE_RAIL; // handle legacy v1.x config
+          if (settings["mode"].is<int>())             boardMode = settings["mode"];
+          else if (settings["tube"].is<bool>())       boardMode = settings["tube"] ? MODE_TUBE : MODE_RAIL; // handle legacy v1.x config
         }
 
         if (settings["dataSource"].is<int>())         useRDMclient = (settings["dataSource"]?1:0);
@@ -1612,10 +1648,7 @@ bool checkForFirmwareUpdate() {
   // Check that we found the firmware.bin file in the release assets
   if (ghUpdate.firmwareURL.length()==0) return result;
 
-  for (int i=30;i>=0;i--) {
-    showFirmwareUpdateWarningScreen(ghUpdate.releaseDescription.c_str(),i);
-    delay(1000);
-  }
+  showFirmwareUpdateWarningScreen(ghUpdate.releaseDescription.c_str());
   u8g2.clearDisplay();
   prevProgressBarPosition=0;
   showFirmwareUpdateProgress(0);  // So we don't have a blank screen

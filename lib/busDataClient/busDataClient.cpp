@@ -38,12 +38,7 @@ bool busDataClient::compareTimes(const busTubeService& a, const busTubeService& 
     sscanf(b.sortTime, "%d:%d", &hour2, &minute2);
 
     // Compare hours first
-    if (hour1 != hour2) {
-        // Fudge for rollover at midnight
-        if (hour1 < 7 && hour2 > 20) return false;
-        if (hour2 < 7 && hour1 > 20) return true;
-        else return hour1 < hour2;
-    }
+    if (hour1 != hour2) return hour1 < hour2;
     // If hours are equal, compare minutes
     return minute1 < minute2;
 }
@@ -351,6 +346,8 @@ int busDataClient::fetchDepartures(rdStation *station, const char *locationId, c
         pagesLoaded++;
     } while (xBusStop->numServices < MAXBOARDSERVICES && strlen(pageOffset) && pagesLoaded < MAX_SCANNED_PAGES);
 
+    getLocalTime(&timeinfo);
+    int hour, minute;
     // Remove &amp; from destination name, set sort time
     for (int i=0;i<xBusStop->numServices;i++) {
         replaceWord(xBusStop->service[i].destinationName,"&amp;","&");
@@ -359,6 +356,9 @@ int busDataClient::fetchDepartures(rdStation *station, const char *locationId, c
         } else {
             strcpy(xBusStop->service[i].sortTime,xBusStop->service[i].scheduled);
         }
+        // Determine if the time has rolled over to tomorrow for the sort to work correctly.
+        sscanf(xBusStop->service[i].sortTime, "%d:%d", &hour, &minute);
+        if (hour < (timeinfo.tm_hour - 1)) sprintf(xBusStop->service[i].sortTime,"%02d:%02d",hour+24,minute);
     }
 
     // Sort the services by actual departure time
