@@ -50,7 +50,7 @@ A step-by-step guide to obtaining the API keys is available [here](https://depar
 
 ### Preparing the OLED display for 4-Wire SPI Mode
 
-<img src="https://github.com/user-attachments/assets/cd176b57-ced6-486b-9a0d-9eee150dc813" style="float:right">
+<img src="https://github.com/user-attachments/assets/cd176b57-ced6-486b-9a0d-9eee150dc813" align="right">
 As supplied, the display is usually shipped with 8-bit 80XX mode enabled. This needs to be changed to 4-Wire SPI mode by removing one link and adding another (the image shows where to make these changes on the rear of the circuit board).
 
 ### Wiring Guide
