@@ -1,6 +1,9 @@
 # departures-board [![License Badge](https://img.shields.io/badge/BY--NC--SA%204.0%20License-grey?style=flat&logo=creativecommons&logoColor=white)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
 This is an ESP32 based Departures Board replicating those at many UK railway stations (using data provided by National Rail's public API), London Underground Arrivals boards (using data provided by TfL) and UK wide bus stops (using data provided by bustimes.org). This implementation uses a 3.12" OLED display panel with SSD1322 display controller onboard, plus an optional TTP223 touch sensor. STL files are also provided for 3D printing the custom desktop case. Pre-assembled departure boards are also available exclusively from our [store](https://store.gadec.co.uk).
+<img src="https://github.com/user-attachments/assets/81d6750f-3e02-48c8-a199-595bb0697681" style="display:block; margin:0 auto;"/>
+
+A Larger LED Matrix version of this project, with audio station announcements, is also available [here](https://github.com/gadec-uk/matrix-departures-board).
 
 A model railway (00 gauge) version of this project is also available [here](https://github.com/gadec-uk/tiny-departures-board).
 
@@ -43,11 +46,11 @@ A model railway (00 gauge) version of this project is also available [here](http
 
 A step-by-step guide to obtaining the API keys is available [here](https://departures-board.github.io/Departures-Board-API-Keys-Guide.pdf).
 
-<img src="https://github.com/user-attachments/assets/5ae96896-62cc-4880-a3a8-79ac505e7605" align="center">
+<img src="https://github.com/user-attachments/assets/5ae96896-62cc-4880-a3a8-79ac505e7605" style="display:block; margin:0 auto;">
 
 ### Preparing the OLED display for 4-Wire SPI Mode
 
-<img src="https://github.com/user-attachments/assets/cd176b57-ced6-486b-9a0d-9eee150dc813" align="right">
+<img src="https://github.com/user-attachments/assets/cd176b57-ced6-486b-9a0d-9eee150dc813" style="float:right">
 As supplied, the display is usually shipped with 8-bit 80XX mode enabled. This needs to be changed to 4-Wire SPI mode by removing one link and adding another (the image shows where to make these changes on the rear of the circuit board).
 
 ### Wiring Guide
@@ -69,7 +72,7 @@ Solder the 4 SPI connections, plus power and ground. The wires **MUST** be solde
 | 2 I/O | IO34 |
 | 3 VCC | 3.3v |
 
-<img src="https://github.com/user-attachments/assets/0ebc152c-36d9-4f73-8223-1f52e9198543" align="center">
+<img src="https://github.com/user-attachments/assets/0ebc152c-36d9-4f73-8223-1f52e9198543" style="display:block; margin:0 auto;">
 
 ### Installing the firmware
 
@@ -115,7 +118,7 @@ At start-up, the ESP32's IP address is displayed. To change the station or to co
 - **Only show services calling at** - filter services based on *calling at* location (National Rail mode - if you want to see the next trains *to* a particular station).
 - **Only show these platforms** - filter services based on the platform they depart from. Note: there are many services for which platform number is not supplied, these would also be filtered out.
 - **Add to Scheduler** - adds the current configured station/tube/bus stop to the scheduler (see schedule tab) to switch based on time of day.
-- **Add to Carousel** - adds the current configured station/tube/bus stop to the carousel (see schedule tab) to switch views after a period of time. 
+- **Add to Carousel** - adds the current configured station/tube/bus stop to the carousel (see schedule tab) to switch views after a period of time.
 - **Underground Station** - start typing a few characters of an Underground or DLR station name and select from the drop-down station picker displayed (London Underground mode).
 - **Filter by Line** - select the desired underground line or all lines for all arrivals.
 - **Filter by Direction** - select the desired direction or any direction for all arrivals.
@@ -142,7 +145,7 @@ At start-up, the ESP32's IP address is displayed. To change the station or to co
 - **Full screen clock during sleep mode** - displays the full screen station clock during sleep mode.
 #### Schedule tab ####
 - **Enable scheduler** - automatically switches between views based on the configured time of each entry in the scheduler list below.
-- **Enable carousel** - automatically switches between views based on the configured view time of each entry in the carousel list below. 
+- **Enable carousel** - automatically switches between views based on the configured view time of each entry in the carousel list below.
 #### Advanced Tab ####
 - **Enable touch sensor** - a tap switches between configured modes (rail/tube/bus) or wakes from sleep. If the Scheduler or Carousel mode is active, a tap switch to the next location in the list. Obviously, do not enable this option if you have not installed a TTP223 touch sensor.
 - **Wake from sleep by touch for** - if the board is in screensaver mode and the touch sensor is enabled, a tap will wake the board and it will remain awake for the selected number of minutes (the countdown timer resets on each tap).
@@ -178,7 +181,7 @@ A few other urls have been implemented, primarily for debugging/developer use:
 ### Bus Stop ATCO codes
 Every UK bus stop has a unique ATCO code number. To find the ATCO code of the stop you want to monitor, go to [bustimes.org/search](https://bustimes.org/search) and type a location in the search box. Select the location from the list of places shown and then select the particular stop you want from the list. The ATCO code is shown on the stop information page. After entering the code in the Departures Board setup screen, tap the **Verify** button and the location will be shown confirming your selection. You must use the **Verify** button *before* you can save changes. Up to ten of the most recently verified ATCO codes are saved and can be selected from a dropdown list for quick access. The bustimes map and search facility are also embedded in the Bus mode configuration screen from firmware B2.3 onwards.
 
-<img src="https://github.com/user-attachments/assets/8a41ec6d-5f15-4102-b3d5-c09260986319" align="center">
+<img src="https://github.com/user-attachments/assets/8a41ec6d-5f15-4102-b3d5-c09260986319" style="display:block; margin:0 auto;">
 
 ### Custom Time Zones
 To set a custom time zone for the departure board clock, you will need to enter the POSIX time zone string for your location. Some examples are `CST6CDT,M3.2.0/2,M11.1.0/2` for Canada (Central Time) and `AEST-10AEDT,M10.1.0,M4.1.0/3` for Australia (Eastern Time). The easiest way to find the correct syntax is to ask your favourite AI chat engine *"What is the POSIX time zone string for ..."*. Note that changing the time zone only affects the clock (and date) display. Service times are *always* shown in UK time.
