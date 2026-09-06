@@ -3,7 +3,7 @@
 This is an ESP32 based Departures Board replicating those at many UK railway stations (using data provided by National Rail's public API), London Underground Arrivals boards (using data provided by TfL) and UK wide bus stops (using data provided by bustimes.org). This implementation uses a 3.12" OLED display panel with SSD1322 display controller onboard, plus an optional TTP223 touch sensor. STL files are also provided for 3D printing the custom desktop case. Pre-assembled departure boards are also available exclusively from our [store](https://store.gadec.co.uk).
 <img src="https://github.com/user-attachments/assets/81d6750f-3e02-48c8-a199-595bb0697681" style="display:block; margin:0 auto;"/>
 
-A Larger LED Matrix version of this project, with audio station announcements, is also available [here](https://github.com/gadec-uk/matrix-departures-board).
+A larger LED Matrix version of this project, with audio station announcements, is also available [here](https://github.com/gadec-uk/matrix-departures-board).
 
 A model railway (00 gauge) version of this project is also available [here](https://github.com/gadec-uk/tiny-departures-board).
 
