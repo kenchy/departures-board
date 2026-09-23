@@ -9,15 +9,13 @@
  * To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/4.0/
  */
 #pragma once
-#include <JsonListener.h>
-#include <JsonStreamingParser.h>
-#include <stationData.h>
+#include <WiFiClientSecure.h>
+#include <sharedDataStructs.h>
+#include <responseCodes.h>
+#include <time.h>
 
-typedef void (*busClientCallback) ();
-
-#define MAXBUSLINESIZE 9
-#define BUSMAXREADSERVICES 20
 #define MAXBUSFILTERSIZE 25
+#define MAX_SCANNED_PAGES 5
 
 #define PBT_START 0
 #define PBT_HEADER 1
@@ -26,52 +24,35 @@ typedef void (*busClientCallback) ();
 #define PBT_SCHEDULED 4
 #define PBT_EXPECTED 5
 
-class busDataClient: public JsonListener {
+class busDataClient {
 
     private:
 
-        struct busService {
-            char destinationName[MAXLOCATIONSIZE];
-            char lineName[MAXBUSLINESIZE];
-            char scheduled[6];
-            char expected[6];
-        };
-
-        struct busStop {
-            int numServices;
-            busService service[BUSMAXREADSERVICES];
-        };
-
         const char* apiHost = "bustimes.org";
-        String currentKey = "";
-        String currentObject = "";
 
         int id=0;
-        String longName;
         bool maxServicesRead = false;
-        busStop xBusStop;
+        bool boardChanged = false;
+        long dataReceived;
+        bool bChunked;
+        char pageOffset[40];
+        struct tm timeinfo;
+        busTubeStation* xBusStop = nullptr;
+        sharedBufferSpace* js = nullptr;
 
         String stripTag(String html);
+        static bool compareTimes(const busTubeService& a, const busTubeService& b);
         void replaceWord(char* input, const char* target, const char* replacement);
         void trim(char* &start, char* &end);
         bool equalsIgnoreCase(const char* a, int a_len, const char* b);
         bool serviceMatchesFilter(const char* filter, const char* serviceId);
+        bool isDuplicateService(int serviceIndex);
+        int fetchDeparturesPage(const char *locationId, const char *filter);
 
     public:
-        String lastErrorMsg = "";
 
-        busDataClient();
-        int getStopLongName(const char *locationId, char *locationName);
+        busDataClient(busTubeStation *station, sharedBufferSpace *sharedBuffer);
         void cleanFilter(const char* rawFilter, char* cleanedFilter, size_t maxLen);
-        int updateDepartures(rdStation *station, const char *locationId, const char *filter, busClientCallback Xcb);
-
-        virtual void whitespace(char c);
-        virtual void startDocument();
-        virtual void key(String key);
-        virtual void value(String value);
-        virtual void endArray();
-        virtual void endObject();
-        virtual void endDocument();
-        virtual void startArray();
-        virtual void startObject();
+        int fetchDepartures(rdStation *station, const char *locationId, const char *filter);
+        void loadDepartures(rdStation *station);
 };
