@@ -8,20 +8,20 @@
  *
  * ESP32 "Mini" Board with 3.12" 256x64 OLED Display Panel with SSD1322 controller on-board.
  *
- * OLED PANEL     ESP32 c3 super mini
+ * OLED PANEL     ESP32 MINI
  * 1 VSS          GND
  * 2 VCC_IN       3.3V
- * 4 D0/CLK       IO4
- * 5 D1/DIN       IO6
- * 14 D/C#        IO8
- * 16 CS#         IO9
+ * 4 D0/CLK       IO18
+ * 5 D1/DIN       IO23
+ * 14 D/C#        IO5
+ * 16 CS#         IO26
  *
  * Optional TTP223 touch sensor connection:
  *
  * TTP223         ESP32 MINI
  * GND            GND
  * VCC            3.3V
- * I/O            IO1
+ * I/O            IO34
  *
  */
 
@@ -76,7 +76,7 @@ static struct tm timeinfo;
 static const char ukTimezone[] = "GMT0BST,M3.5.0/1,M10.5.0";
 
 // Default hostname
-static const char defaultHostname[] = "LottiesBoard";
+static const char defaultHostname[] = "DeparturesBoard";
 
 // Local firmware updates via /update Web GUI
 static const char updatePage[] =
@@ -134,13 +134,7 @@ static const char successPage[] =
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 #define DIMMED_BRIGHTNESS 1 // OLED display brightness level when in sleep/screensaver mode
 
-<<<<<<< HEAD
-//U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2(U8G2_R0, /* cs=*/ 26, /* dc=*/ 5, /* reset=*/ U8X8_PIN_NONE);
-//Change the gpio pons so they'll work with a c3 supermini
-U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2(U8G2_R0, /* cs=*/ 8, /* dc=*/ 9, /* reset=*/ U8X8_PIN_NONE);
-=======
 U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2(U8G2_R0, /* cs=*/ GPIO_NUM_26, /* dc=*/ GPIO_NUM_5, /* reset=*/ U8X8_PIN_NONE);
->>>>>>> f651d9f58296c9c6a9ccca188ab662b0605bf05e
 
 // Vertical line positions on the OLED display (National Rail)
 #define LINE0 0
@@ -396,11 +390,6 @@ static int nrTimeOffset = 0;               // Offset minutes for Rail departures
 static int prevUpdateCheckDay;             // Day of the month the last daily firmware update check was made
 static unsigned long fwUpdateCheckTimer=0; // Next time to check if the day has rolled over for firmware update check
 static bool apiKeys = false;               // Does apikeys.json exist?
-<<<<<<< HEAD
-static bool touchEnabled = true;          // TTP223 Touch Sensor installed?
-static bool touchOverrideAlt = false;      // Touch/Button has switched to/from alternate station
-
-=======
 static bool touchEnabled = false;          // TTP223 Touch Sensor installed?
 static bool useRDMclient = false;          // Use the new Rail Data Marketplace API instead of Darwin Lite
 static bool enableScheduler = false;
@@ -410,7 +399,6 @@ static int currentCarouselSlot = 0;
 static int numScheduleSlots = 0;
 static int currentScheduleSlot = 0;
 static unsigned long nextSchedulerCheck = 0;
->>>>>>> f651d9f58296c9c6a9ccca188ab662b0605bf05e
 static char hostname[33];                  // Network hostname (mDNS)
 static char myUrl[24];                     // Stores the board's own url
 
@@ -516,9 +504,6 @@ static char rssMessage[MAXMESSAGESIZE] = "";           // Holds the current, for
 
 
 // Optional TTP223 touch sensor / push button
-<<<<<<< HEAD
-touchSensor button(1);
-=======
 touchSensor button(GPIO_NUM_34);
 
 // FreeRTOS Task Handle and Status Flags
@@ -537,7 +522,6 @@ enum fetchModes {
   FETCH_RSS = 2
 };
 fetchModes fetchMode = FETCH_BOARD;
->>>>>>> f651d9f58296c9c6a9ccca188ab662b0605bf05e
 
 /*
  * Graphics helper functions for OLED panel
@@ -3690,9 +3674,4 @@ void loop(void) {
     nextSchedulerCheck = millis() + 10000;  // ten seconds
   }
 
-<<<<<<< HEAD
-  if (manualUpdateCheck) doManualOtaCheck();
 }
-=======
-}
->>>>>>> f651d9f58296c9c6a9ccca188ab662b0605bf05e
