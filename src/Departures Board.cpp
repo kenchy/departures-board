@@ -356,7 +356,7 @@ static int nrTimeOffset = 0;               // Offset minutes for Rail departures
 static int prevUpdateCheckDay;             // Day of the month the last daily firmware update check was made
 static unsigned long fwUpdateCheckTimer=0; // Next time to check if the day has rolled over for firmware update check
 static bool apiKeys = false;               // Does apikeys.json exist?
-static bool touchEnabled = false;          // TTP223 Touch Sensor installed?
+static bool touchEnabled = true;          // TTP223 Touch Sensor installed?
 static bool touchOverrideAlt = false;      // Touch/Button has switched to/from alternate station
 
 static char hostname[33];                  // Network hostname (mDNS)
