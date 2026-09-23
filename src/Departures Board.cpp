@@ -134,7 +134,8 @@ static const char successPage[] =
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 #define DIMMED_BRIGHTNESS 1 // OLED display brightness level when in sleep/screensaver mode
 
-U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2(U8G2_R0, /* cs=*/ GPIO_NUM_26, /* dc=*/ GPIO_NUM_5, /* reset=*/ U8X8_PIN_NONE);
+//U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2(U8G2_R0, /* cs=*/ GPIO_NUM_26, /* dc=*/ GPIO_NUM_5, /* reset=*/ U8X8_PIN_NONE);
+U8G2_SSD1322_NHD_256X64_F_4W_HW_SPI u8g2(U8G2_R0, /* cs=*/ 8, /* dc=*/ 9, /* reset=*/ U8X8_PIN_NONE);
 
 // Vertical line positions on the OLED display (National Rail)
 #define LINE0 0
@@ -504,7 +505,8 @@ static char rssMessage[MAXMESSAGESIZE] = "";           // Holds the current, for
 
 
 // Optional TTP223 touch sensor / push button
-touchSensor button(GPIO_NUM_34);
+//touchSensor button(GPIO_NUM_34);
+touchSensor button(1);
 
 // FreeRTOS Task Handle and Status Flags
 TaskHandle_t fetchTaskHandle = NULL;
